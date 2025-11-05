@@ -1,7 +1,9 @@
 # GovTool Preview – 1× GA Review Sandbox (100 Concurrent Wallets)
+
 This README describes production-lite hosting specs to run **GovTool (Preview network)** for a single Governance Action (GA) with up to **100 wallets connected concurrently**. It includes system sizing, packages, configuration, and operational guidance. Copy–paste and adapt to your domain.
 
 ## 1) Scope & Assumptions
+
 - **Network:** Cardano **Preview** (testnet)  
 - **Use case:** One GA (read + discuss; users may prepare/submit GAs on Preview if they hold tADA)  
 - **Concurrency target:** ~100 simultaneous wallet connections (UI open + occasional API calls)  
@@ -11,7 +13,6 @@ This README describes production-lite hosting specs to run **GovTool (Preview ne
   - Frontend: [`ghcr.io/intersectmbo/govtool-frontend-preview`](https://github.com/IntersectMBO/govtool/pkgs/container/govtool-frontend-preview)  
   - Metadata Validation (recommended): [`ghcr.io/intersectmbo/govtool-metadata-validation-preview`](https://github.com/IntersectMBO/govtool/pkgs/container/govtool-metadata-validation-preview)  
 - **Out of scope:** Running your own Cardano node/DB-Sync (can be external). If you self-host DB-Sync, provision separately.
-
 
 ## 2) High-Level Architecture
 
@@ -31,14 +32,18 @@ graph TD
     BE -->|queries| DBS
     DBS --> NODE
     BE -->|metadata checks| MV
-
-
 ```
 
+- **Frontend** = static SPA served over HTTPS; connects to user wallets (CIP-30/95) and calls the backend.  
+- **Backend** = REST API that queries Preview DB-Sync and optionally calls metadata-validation service.  
+- **Reverse Proxy** handles TLS, routing, and CORS.
+
 ## 3) Capacity Planning (100 Concurrent Wallets)
+
 **Traffic pattern:** Low–moderate throughput; backend read-heavy.  
 
 **Recommended minimum (single host, dockerized):**
+
 - vCPU: 4 cores  
 - RAM: 8 GB  
 - Disk (SSD/NVMe): 30 GB  
@@ -56,6 +61,7 @@ graph TD
 **Scale up** by adding backend replicas or CDN offload if beyond 100 concurrent.
 
 ## 4) Packages & Roles (Preview)
+
 - **Backend (Preview)** – [govtool-backend-preview](https://github.com/IntersectMBO/govtool/pkgs/container/govtool-backend-preview): REST API that queries DB-Sync and node; provides governance data to UI.  
 - **Frontend (Preview)** – [govtool-frontend-preview](https://github.com/IntersectMBO/govtool/pkgs/container/govtool-frontend-preview): SPA with wallet integration (CIP-30/95); connects to backend.  
 - **Metadata Validation (Preview)** – [govtool-metadata-validation-preview](https://github.com/IntersectMBO/govtool/pkgs/container/govtool-metadata-validation-preview): Validates GA metadata schema (optional but recommended).  
@@ -64,13 +70,15 @@ graph TD
 
 ## 5) Environment Variables
 
-**Frontend**
+### Frontend
+
 ```bash
 VITE_API_BASE=https://api.example.com
 VITE_NETWORK=preview
 ```
 
-**Backend**
+### Backend
+
 ```bash
 PORT=8081
 NETWORK=preview
@@ -83,12 +91,14 @@ DB_SYNC_DATABASE=<db-name>
 METADATA_VALIDATION_URL=http://metadata:8080
 ```
 
-**Metadata Validation**
+### Metadata Validation
+
 ```bash
 NETWORK=preview
 ```
 
 ## 6) Docker Compose (Reference)
+
 ```yaml
 version: "3.9"
 services:
@@ -137,7 +147,8 @@ services:
     restart: unless-stopped
 ```
 
-**Example `nginx.conf`:**
+### Example `nginx.conf`
+
 ```nginx
 events {}
 http {
@@ -162,6 +173,7 @@ http {
 ```
 
 ## 7) Configuration Checklist
+
 - [ ] Frontend: `VITE_API_BASE`, `VITE_NETWORK=preview`  
 - [ ] Backend: `NETWORK=preview`, DB-Sync credentials, CORS origin matches frontend  
 - [ ] Metadata: `NETWORK=preview`  
@@ -170,6 +182,7 @@ http {
 - [ ] Secrets stored securely  
 
 ## 8) Security & Compliance
+
 - Enforce HTTPS and modern TLS.  
 - Restrict CORS to your domain.  
 - Add CSP, X-Frame-Options, X-Content-Type-Options.  
@@ -177,40 +190,47 @@ http {
 - Rotate logs and redact sensitive info.  
 
 ## 9) Monitoring
+
 - Health: `/api/health` → `200 OK`.  
 - Metrics: request latency, 5xx count, DB-Sync lag.  
 - Target uptime (Preview sandbox): **99.5%**.
 
 ## 10) Operational Runbook
+
 ```bash
 docker compose up -d
 curl http://<host>/api/health     # Should return OK
 open https://app.example.com      # UI should load, wallet connects
 ```
+
 - Verify wallet network = Preview.  
 - Confirm GA appears correctly.  
 - Optional: simulate 100 clients hitting read endpoints; ensure backend p95 < 500 ms.
 
 ## 11) Frontend Notes
+
 - Highlight GA ID and link on homepage.  
 - Label clearly: “Preview network – test ADA only.”  
 - Provide link to tADA faucet.
 
 ## 12) Scaling Beyond 100 Concurrent
+
 - Serve frontend via CDN (Netlify/Vercel/S3).  
 - Add backend replicas behind a load balancer.  
 - Keep backend close to DB-Sync region.  
 - Cache GA endpoints if needed.
 
 ## 13) Troubleshooting
-| Issue                 | Likely Cause      | Fix                                       |
-|-----------------------|-------------------|-------------------------------------------|
-| Blank GA list         | DB-Sync lag       | Verify network & provider                 |
-| Wallet fails to connect | No HTTPS / wrong network | Enable HTTPS, set wallet to Preview |
-| CORS blocked          | Origin mismatch   | Update backend `CORS_ALLOWED_ORIGINS`     |
-| Slow API              | DB-Sync latency   | Relocate backend or upgrade IOPS          |
+
+| Issue                   | Likely Cause             | Fix                                        |
+|-------------------------|--------------------------|--------------------------------------------|
+| Blank GA list           | DB-Sync lag              | Verify network & provider                  |
+| Wallet fails to connect | No HTTPS / wrong network | Enable HTTPS, set wallet to Preview        |
+| CORS blocked            | Origin mismatch          | Update backend `CORS_ALLOWED_ORIGINS`      |
+| Slow API                | DB-Sync latency          | Relocate backend or upgrade IOPS           |
 
 ## 14) Useful Links
+
 - Backend (Preview): [`ghcr.io/intersectmbo/govtool-backend-preview`](https://github.com/IntersectMBO/govtool/pkgs/container/govtool-backend-preview)  
 - Frontend (Preview): [`ghcr.io/intersectmbo/govtool-frontend-preview`](https://github.com/IntersectMBO/govtool/pkgs/container/govtool-frontend-preview)  
 - Metadata Validation (Preview): [`ghcr.io/intersectmbo/govtool-metadata-validation-preview`](https://github.com/IntersectMBO/govtool/pkgs/container/govtool-metadata-validation-preview)  
@@ -218,4 +238,5 @@ open https://app.example.com      # UI should load, wallet connects
 - Optional loader: [gov-action-loader](https://github.com/IntersectMBO/govtool/tree/develop/gov-action-loader)
 
 ## 15) License & Attribution
+
 Check the upstream license in the [IntersectMBO/govtool](https://github.com/IntersectMBO/govtool) repository before public deployment. Pin versions and record image tags in your CHANGELOG.
